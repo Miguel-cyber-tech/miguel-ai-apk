@@ -13,6 +13,14 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v3
 
+    - name: Cache Python packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
     - name: Install dependencies
       run: |
         sudo apt update
@@ -20,7 +28,18 @@ jobs:
         python3 -m pip install --upgrade pip
         pip install buildozer cython
 
+    - name: Cache Buildozer/Android SDK
+      uses: actions/cache@v3
+      with:
+        path: |
+          $HOME/.buildozer
+          $HOME/Android/Sdk
+        key: ${{ runner.os }}-buildozer-${{ hashFiles('**/buildozer.spec') }}
+        restore-keys: |
+          ${{ runner.os }}-buildozer-
+
     - name: Setup Android SDK & NDK
+      if: steps.cache-buildozer.outputs.cache-hit != 'true'
       run: |
         mkdir -p $HOME/Android/Sdk
         wget https://dl.google.com/android/repository/commandlinetools-linux-9123335_latest.zip -O cmdline-tools.zip
@@ -36,8 +55,7 @@ jobs:
         echo "export PATH=$PATH:$HOME/Android/Sdk/cmdline-tools/latest/bin:$HOME/Android/Sdk/platform-tools" >> $GITHUB_ENV
 
     - name: Build APK with Buildozer
-      run: |
-        buildozer android debug
+      run: buildozer android debug
 
     - name: Upload APK artifact
       uses: actions/upload-artifact@v3
